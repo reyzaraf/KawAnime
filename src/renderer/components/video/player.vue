@@ -1,223 +1,47 @@
 <template lang="pug">
-  .video-player(
-    @mousemove='onMouseMove',
-    :style='{ cursor: !layoutShow ? "none" : null }'
+  wrapper(
+    :onReady='this.handleMPVReady',
+    :onPropertyChange='this.handlePropertyChange'
+    :onMouseDown='this.togglePause'
   )
-    video(
-      ref='video',
-      crossorigin='anonymous',
-      name='kawanime-player',
-      :preload="isMagnet ? 'metadata' : 'auto'",
-      @pause='paused = true',
-      @play='paused = false',
-      @timeupdate='onTimelineChangeEvent',
-      @waiting='waiting = true',
-      @canplay='onCanPlay',
-      @progress='onProgress',
-      @seeked='onSeeked',
-      @ended='onEnded',
-      @click='togglePlay',
-      @dblclick='toggleFullScreen',
-      :src='value'
-    ) Your browser does not support HTML5 video.
-
-    cues-container(
-      v-show='isAss && trackNumber',
-      ref='cuesContainer',
-      :cues='currentTrack'
-    )
-
-    layout(
-      ref='layout',
-      :video='$refs.video',
-      :title='videoTitle',
-      :waiting='waiting',
-      :paused='paused',
-      :fullscreen='fullscreen',
-      :isMinimized='isMinimized',
-      @trackChange='setTrack',
-      @togglePlay='togglePlay',
-      @toggleFullScreen='toggleFullScreen',
-      @actOnWindow='actOnWindow',
-      @show='layoutShow = true',
-      @hide='layoutShow = false'
-    )
 </template>
 
 <script>
-// Comps
-import Layout from '@/components/video/layout.vue'
-import CuesContainer from '@/components/video/cues/container.vue'
-
-// Mixins and methods
-import Tracks from '@/mixins/video/tracks'
-import Subtitles from '@/mixins/video/subtitles'
-import Style from '@/mixins/video/getStyle'
-import Tracking from '@/mixins/video/tracking'
+import Wrapper from './wrapper.vue'
 
 export default {
-  name: 'video-player',
+  name: 'MpvPlayer',
 
-  components: {
-    CuesContainer,
-    Layout
-  },
+  components: { Wrapper },
 
-  mixins: [ Tracks, Subtitles, Style, Tracking ],
-
-  props: ['value', 'title', 'fullscreen', 'isMinimized'],
-
-  data () {
-    return {
-      waiting: false,
-      paused: true,
-      layoutShow: true,
-      name: '',
-      hasAppendedToHistory: false
-    }
-  },
-
-  mounted () {
-    const { video, layout } = this.$refs
-
-    video.addEventListener('loadedmetadata', () => {
-      // We need to get the subtitles only when the torrent is ready to be read.
-      // Otherwise, there is no file to get the subtitles from.
-      this.setHeight()
-      layout.reveal()
-
-      if (this.config.autoplay) this.togglePlay()
-
-      if (this.isMagnet) this.$ipc.send(this.$eventsList.streaming.subs.main)
-
-      if (this.title) {
-        this.addToHistory()
-      }
-    })
-
-    video && !this.fullscreen && this.config.fullscreen && this.toggleFullScreen()
-  },
-
-  beforeDestroy () {
-    this.eventSource && this.eventSource.close()
-
-    // Removing cue styling from head
-    const styleTag = document.querySelector(`style[name="${this.value}"]`)
-    styleTag instanceof Node && document.head.removeChild(styleTag)
-
-    this.isMagnet
-      ? this.$ipc.send(this.$eventsList.streaming.stop.main)
-      : this.$ipc.send(this.$eventsList.video.stop.main)
-  },
-
-  computed: {
-    config: {
-      get () {
-        return this.$store.state.config.config.video
-      },
-      set () {}
-    },
-    player: {
-      get () {
-        return this.$store.state.streaming.player
-      },
-      set () {}
-    },
-    isMagnet () {
-      return !!this.player.torrent
-    },
-    videoTitle () {
-      return this.title || this.name
-    }
-  },
+  data: () => ({
+    mpv: null,
+    pause: false,
+    'time-pos': 0,
+    fullscreen: false,
+    duration: 0
+  }),
 
   methods: {
-    onTimelineChangeEvent () {
-      const { video, cuesContainer, layout } = this.$refs
-
-      if (video) {
-        layout.updateTime()
-        cuesContainer.updateTimeline(video.currentTime)
-
-        if (this.isAss) cuesContainer.updateActiveCues()
+    handleMPVReady (mpv) {
+      this.mpv = mpv;
+      ['pause', 'time-pos', 'duration', 'eof-reached'].forEach(this.mpv.observe)
+      this.mpv.property('hwdec', 'auto')
+      this.mpv.command('loadfile', '/Users/Kylart/Downloads/[HorribleSubs] Azur Lane - 02 [720p].mkv')
+    },
+    handlePropertyChange (name, value) {
+      if (!this.hasOwnProperty(name)) {
+        console.log('unset', name)
+        return
       }
+      this.$set(this, name, value)
     },
-    onProgress () {
-      const { video, layout } = this.$refs
-
-      if (video) {
-        layout.updateBuffer()
-      }
-    },
-    onCanPlay () {
-      this.waiting = false
-    },
-    onSeeked () {
-      // Needed for subtitle timing
-      this.index = 0
-      if (this.isMagnet) this.$ipc.send(this.$eventsList.streaming.subs.main)
-    },
-    onEnded () {
-      const { neighbours } = this.$store.state.streaming.player
-
-      if (neighbours) {
-        const { next } = neighbours
-        this.$emit('sendNext', next)
-      } else {
-        this.fullscreen && this.toggleFullScreen()
-      }
-    },
-    onMouseMove (e) {
-      if (Math.abs(e.movementX) > 1 || Math.abs(e.movementY) > 1) { this.$refs.layout.reveal() }
-    },
-    togglePlay () {
-      const { video, layout } = this.$refs
-
-      this.paused ? video.play() : video.pause()
-
-      layout.reveal()
-    },
-    toggleFullScreen () {
-      this.$emit('fullscreen')
-    },
-    actOnWindow (type) {
-      this.$parent[type]()
-    },
-    addToHistory () {
-      if (!this.hasAppendedToHistory) {
-        this.$store.dispatch('history/append', {
-          type: this.isMagnet ? 'Stream' : 'Play',
-          text: this.videoTitle
-        })
-
-        this.hasAppendedToHistory = true
-      }
+    togglePause (e) {
+      e.target.blur()
+      console.log('togglepause')
+      if (!this.state.duration) return
+      this.mpv.property('pause', !this.state.pause)
     }
   }
 }
 </script>
-
-<style lang="stylus">
-  .video-player
-    background-color black
-    line-height 0px
-    position relative
-    display inline-block
-    height 100%
-    width 100%
-
-    &:fullscreen
-      width 100vw
-
-    video
-      height 100%
-      width 100%
-
-  .cue
-    background-color rgba(0, 0, 0, 0)
-    -webkit-font-smoothing antialiased
-    width 95%
-    font-family "Open Sans", sans-serif
-    font-weight 500
-    line-height 1.25
-</style>

@@ -41,6 +41,7 @@
     "matroska-subtitles": "^2.0.3",
     "mime": "^2.4.4",
     "moment": "^2.24.0",
+    "mpv.js": "^0.3.0",
     "node-addon-api": "^1.7.1",
     "nyaapi": "^2.1.0",
     "pump": "^3.0.0",

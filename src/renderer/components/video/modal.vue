@@ -8,10 +8,6 @@
             @sendNext='setNext',
             @fullscreen='toggleFullScreen',
             ref='player',
-            :value='videoUrl',
-            :title='title',
-            :fullscreen='fullscreen',
-            :isMinimized='isMinimized'
           )
 
     v-fade-transition
@@ -187,7 +183,7 @@ export default {
     left 0
     width 100%
     height 100%
-    pointer-events none
+    // pointer-events none
     user-select none
 
     .video-dialog
@@ -195,7 +191,7 @@ export default {
       min-width 500px
       position absolute
       transition bottom 0.25s ease, right 0.25s ease
-      pointer-events all
+      // pointer-events all
 
     .video-overlay
       position absolute
