@@ -21,7 +21,7 @@
                   span Rewind 5s
                   template(v-slot:activator='{ on }')
                     v-icon(@click='timeForward(-5)', v-on='on') replay_5
-                v-icon(large, @click='togglePlay', v-html='paused ? "play_arrow" : "pause"')
+                v-icon(large, @click='togglePlay', v-html='pause ? "play_arrow" : "pause"')
                 v-tooltip(top)
                   span Fast forward 5s
                   template(v-slot:activator='{ on }')
@@ -32,7 +32,7 @@
                     v-icon(@click='timeForward(85)', v-on='on') fast_forward
 
               v-flex(xs2)
-                v-menu(v-show='hasTracks', offset-overflow, offset-y, top)
+                v-menu(v-show='hasSubs', offset-overflow, offset-y, top)
                   template(v-slot:activator='{ on }')
                     v-btn.subtitles.ma-0(v-on='on', small, outlined, icon, color='secondary accent-2')
                       v-icon(small) subtitles
@@ -48,7 +48,9 @@
               v-flex(xs9)
                 progress-bar.ma-0(
                   dark, hide-details, color='secondary accent-2',
-                  :step='0', :buffer='buffered', :value='timeline',
+                  :step='0',
+                  :buffer='buffered',
+                  :value='timeline / 100',
                   :duration='duration',
                   @input='changeTimeline'
                 )
@@ -71,13 +73,30 @@ export default {
     'duration',
     'volume',
     'buffered',
-    'hasTracks',
+    'hasSubs',
     'numToLang',
     'currentLang',
-    'paused',
-    'fullscreen',
-    'video'
+    'pause'
   ],
+
+  computed: {
+    controls: {
+      get () {
+        return this.$store.state.streaming.player.controls
+      },
+      set () {}
+    },
+    fullscreen () {
+      return this.controls.fullscreen
+    },
+    isMinimized () {
+      return this.controls.isMinimized
+    },
+
+    videoTitle () {
+      return this.$store.state.streaming.player.name
+    }
+  },
 
   methods: {
     timeForward (value) {
