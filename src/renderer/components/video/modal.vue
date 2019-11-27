@@ -57,11 +57,11 @@ export default {
     listeners () {
       return {
         32: () => this.togglePlay(),
-        27: () => this.controls.fullscreen ? this.toggleFullScreen() : this.close()
-        // 37: () => this.forward(-5),
-        // 39: () => this.forward(5),
-        // 38: () => this.increaseVolume(5),
-        // 40: () => this.increaseVolume(-5)
+        27: () => this.controls.fullscreen ? this.toggleFullScreen() : this.close(),
+        37: () => this.forward(-5),
+        39: () => this.forward(5),
+        38: () => this.$refs.player.setVolume(5, true),
+        40: () => this.$refs.player.setVolume(-5, true)
       }
     }
   },
@@ -119,10 +119,10 @@ export default {
       }
     },
     forward (value) {
-      this.$refs.player.$refs.layout.timeForward(value)
+      this.$refs.player.timeForward(value)
     },
     increaseVolume (value) {
-      this.$refs.player.$refs.layout.increaseVolume(value)
+      this.$refs.player.increaseVolume(value)
     },
     togglePlay () {
       this.$refs.player.togglePlay()

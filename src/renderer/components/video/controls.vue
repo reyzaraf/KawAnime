@@ -50,7 +50,7 @@
                   dark, hide-details, color='secondary accent-2',
                   :step='0',
                   :buffer='buffered',
-                  :value='timeline / 100',
+                  :value='timeline / 10',
                   :duration='duration',
                   @input='changeTimeline'
                 )
@@ -99,16 +99,12 @@ export default {
   },
 
   methods: {
-    timeForward (value) {
-      const { video } = this
-
-      if (video) {
-        video.currentTime += value
-      }
-    },
     // Because I'm lazy
+    timeForward (value) {
+      this.$parent.timeForward(value)
+    },
     changeTimeline (value) {
-      value && this.$parent.changeTimeline(value)
+      value && this.$parent.seek(value)
     },
     changeVolume (value) {
       this.$parent.changeVolume(value)

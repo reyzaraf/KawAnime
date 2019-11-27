@@ -96,16 +96,19 @@ export default {
       this.$emit('toggleFullScreen')
     },
     toggleMute () {
-      this.muted = !this.muted
+      this.$emit('mute')
     },
     actOnWindow (action) {
       this.$emit('actOnWindow', action)
     },
     timeForward (value) {
-
+      this.$emit('timeForward', value)
     },
     changeVolume (value) {
-      // const newVolume = (this.volume = value) / 100
+      this.$emit('volume', value)
+    },
+    seek (value) {
+      this.$emit('seek', value)
     },
     increaseVolume (value) {
       const currentVolume = this.controls.volume * 100

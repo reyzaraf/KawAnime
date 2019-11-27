@@ -21,10 +21,14 @@
       :hasSubs='hasSubs',
       :currentLang='currentSubLang',
       :subs='subs'
+      @seek='seek',
+      @timeForward='timeForward',
+      @volume='setVolume',
       @toggleFullScreen='toggleFullScreen',
       @togglePlay='togglePlay',
       @trackChange='setTrack',
       @actOnWindow='actOnWindow',
+      @mute='toggleMute',
       @show='layoutShow = true',
       @hide='layoutShow = false'
     )
@@ -66,6 +70,14 @@ export default {
   },
 
   computed: {
+    controls: {
+      get () {
+        return this.$store.state.streaming.player.controls
+      },
+      set ({ name, value }) {
+        this.$store.commit('streaming/setControl', { name, value })
+      }
+    },
     subs () {
       return Object.keys(this.tracks)
         .reduce((acc, trackNumber) => {
@@ -78,7 +90,7 @@ export default {
     },
     currentSubLang () {
       const defaultTrack = Object.keys(this.tracks)
-        .find((trackNumber) => this.tracks[trackNumber].type === 'sub' && this.tracks[trackNumber].isDefault)
+        .find((trackNumber) => this.tracks[trackNumber].type === 'sub' && this.tracks[trackNumber].selected)
 
       return this.subs[defaultTrack] || null
     }
@@ -106,7 +118,7 @@ export default {
     handlePropertyChange (name, value) {
       name = this.propertyMap[name] || name
 
-      if (name.match(/track-list\//)) return this.findTracks(name, value)
+      if (name.match(/track-list\//)) return this.handleTracks(name, value)
 
       if (!this.hasOwnProperty(name)) {
         return
@@ -114,7 +126,7 @@ export default {
 
       this.$set(this, name, value)
     },
-    findTracks (propertyName, value) {
+    handleTracks (propertyName, value) {
       if (propertyName === 'track-list/count') {
         if (!value) return
 
@@ -122,42 +134,52 @@ export default {
           this.mpv.observe(`track-list/${i}/type`)
           this.mpv.observe(`track-list/${i}/lang`)
           this.mpv.observe(`track-list/${i}/default`)
+          this.mpv.observe(`track-list/${i}/id`)
+          this.mpv.observe(`track-list/${i}/type`)
+          this.mpv.observe(`track-list/${i}/src`)
+          this.mpv.observe(`track-list/${i}/title`)
+          this.mpv.observe(`track-list/${i}/lang`)
+          this.mpv.observe(`track-list/${i}/selected`)
         }
 
         return
       }
 
-      if (propertyName.match(/track-list\/\d+\/type/)) {
-        const trackNumber = +propertyName.split('/')[1]
-        const type = value
+      if (propertyName.match(/track-list\/\d+/)) {
+        const parts = propertyName.split('/')
+        const trackNumber = +parts[1]
+        const type = parts[2]
         const storedTrack = this.tracks[trackNumber] || {}
 
-        if (type === 'sub' && !this.hasSubs) this.hasSubs = true
+        if (value === 'sub' && !this.hasSubs) this.hasSubs = true
 
-        this.$set(this.tracks, trackNumber, { ...storedTrack, type })
-
-        return
-      }
-
-      if (propertyName.match(/track-list\/\d+\/lang/)) {
-        const trackNumber = +propertyName.split('/')[1]
-        const lang = value
-        const storedTrack = this.tracks[trackNumber] || {}
-
-        this.$set(this.tracks, trackNumber, { ...storedTrack, lang })
-
-        return
-      }
-
-      if (propertyName.match(/track-list\/\d+\/default/)) {
-        const trackNumber = +propertyName.split('/')[1]
-        const isDefault = value
-        const storedTrack = this.tracks[trackNumber] || {}
-
-        this.$set(this.tracks, trackNumber, { ...storedTrack, isDefault })
+        this.$set(this.tracks, trackNumber, { ...storedTrack, [type]: value })
       }
     },
     setTrack (track) {
+      // TODO: Make it work
+      const { selected, id } = this.tracks[track]
+
+      if (selected) this.mpv.command('sub-remove', id)
+      else this.mpv.command('sub-add', id)
+    },
+    seek (value) {
+      this.mpv.command('seek', value, 'absolute-percent')
+    },
+    timeForward (value) {
+      this.mpv.command('seek', value)
+    },
+    setVolume (value, relative) {
+      if (this.mpv) {
+        if (relative) value = this.controls.volume + value
+
+        this.mpv.property('ao-volume', value)
+        this.controls = { name: 'volume', value }
+      }
+    },
+    toggleMute () {
+      this.mpv.property('mute', !this.controls.muted)
+      this.controls = { name: 'muted', value: !this.controls.muted }
     },
     togglePlay (e) {
       if (!this.duration) return
